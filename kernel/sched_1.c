@@ -329,9 +329,9 @@ void do_timer(long cpl)
 	}
 	if (current_DOR & 0xf0)
 		do_floppy_timer();
-	if ((--current->counter)>0) return;//ʱ��Ƭ��1�Դ���0
+	if ((--current->counter)>0) return;//时间片减1仍大于0
 	current->counter=0;
-	if (!cpl) return;//���ں�������
+	if (!cpl) return;//在内核中运行
 	schedule();
 }
 
@@ -412,9 +412,9 @@ void sched_init(void)
 }
 
 int sys_sleep(unsigned int seconds){
-	/*��ϵͳʱ��δ�ֵ������ alarm �ֶ�ֵʱ���ں˾ͻ���ý���
-	����һ�� SIGALRM �źš�Ĭ��ʱ���źŻ���ֹ�����ִ�С�����ʹ���źŲ�׽������signal()
-	�� sigaction()������׽���źŽ���ָ���Ĳ�����*/
+	/*当系统时间滴答值超过了 alarm 字段值时，内核就会向该进程
+	发送一个 SIGALRM 信号。默认时该信号会终止程序的执行。可以使用信号捕捉函数（signal()
+	或 sigaction()）来捕捉该信号进行指定的操作。*/
 	sys_signal(SIGALRM,SIG_IGN,NULL);
 	
 	if(((int)seconds)<0){
