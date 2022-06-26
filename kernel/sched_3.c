@@ -329,9 +329,9 @@ void do_timer(long cpl)
 	}
 	if (current_DOR & 0xf0)
 		do_floppy_timer();
-	if ((--current->counter)>0) return;//ʱ��Ƭ��1�Դ���0
+	if ((--current->counter)>0) return;//时间片减1仍大于0
 	current->counter=0;
-	if (!cpl) return;//���ں�������
+	if (!cpl) return;//在内核中运行
 	schedule();
 }
 
@@ -412,9 +412,9 @@ void sched_init(void)
 }
 
 int sys_sleep(unsigned int seconds){
-	/*��ϵͳʱ��δ�ֵ������ alarm �ֶ�ֵʱ���ں˾ͻ���ý���
-	����һ�� SIGALRM �źš�Ĭ��ʱ���źŻ���ֹ�����ִ�С�����ʹ���źŲ�׽������signal()
-	�� sigaction()������׽���źŽ���ָ���Ĳ�����*/
+	/*当系统时间滴答值超过了 alarm 字段值时，内核就会向该进程
+	发送一个 SIGALRM 信号。默认时该信号会终止程序的执行。可以使用信号捕捉函数（signal()
+	或 sigaction()）来捕捉该信号进行指定的操作。*/
 	sys_signal(SIGALRM,SIG_IGN,NULL);
 	
 	if(((int)seconds)<0){
@@ -428,10 +428,10 @@ int sys_sleep(unsigned int seconds){
 }
 
 struct linux_dirent {
-	long           d_ino; //inode��4���ֽ�
-	off_t          d_off; //offset to next linux_dirent��4���ֽ�
-	unsigned short d_reclen; //length of this dirent��2���ֽ�
-	char           d_name[14]; //filename��14���ֽ�
+	long           d_ino; //inode，4个字节
+	off_t          d_off; //offset to next linux_dirent，4个字节
+	unsigned short d_reclen; //length of this dirent，2个字节
+	char           d_name[14]; //filename，14个字节
 };
 
 
@@ -453,8 +453,8 @@ int sys_getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count)
 	bk=count-len_ldir;
 	num= inode->i_size / len_dir;
 	while (left) {
-		if (nr = bmap(inode,(file->f_pos)/BLOCK_SIZE)) { //�õ������ļ���ǰ��дλ�õ����ݿ����豸�϶�Ӧ���߼���� nr
-				if (!(bd=bread(inode->i_dev,nr))) //������ʧ���˳�ѭ��
+		if (nr = bmap(inode,(file->f_pos)/BLOCK_SIZE)) { //得到包含文件当前读写位置的数据块在设备上对应的逻辑块号 nr
+				if (!(bd=bread(inode->i_dev,nr))) //读操作失败退出循环
 					break;
 			}
 		else
