@@ -329,9 +329,9 @@ void do_timer(long cpl)
 	}
 	if (current_DOR & 0xf0)
 		do_floppy_timer();
-	if ((--current->counter)>0) return;//æ—¶é—´ç‰‡å‡1ä»å¤§äº0
+	if ((--current->counter)>0) return;//Ê±¼äÆ¬¼õ1ÈÔ´óÓÚ0
 	current->counter=0;
-	if (!cpl) return;//åœ¨å†…æ ¸ä¸­è¿è¡Œ
+	if (!cpl) return;//ÔÚÄÚºËÖĞÔËĞĞ
 	schedule();
 }
 
@@ -412,9 +412,9 @@ void sched_init(void)
 }
 
 int sys_sleep(unsigned int seconds){
-	/*å½“ç³»ç»Ÿæ—¶é—´æ»´ç­”å€¼è¶…è¿‡äº† alarm å­—æ®µå€¼æ—¶ï¼Œå†…æ ¸å°±ä¼šå‘è¯¥è¿›ç¨‹
-	å‘é€ä¸€ä¸ª SIGALRM ä¿¡å·ã€‚é»˜è®¤æ—¶è¯¥ä¿¡å·ä¼šç»ˆæ­¢ç¨‹åºçš„æ‰§è¡Œã€‚å¯ä»¥ä½¿ç”¨ä¿¡å·æ•æ‰å‡½æ•°ï¼ˆsignal()
-	æˆ– sigaction()ï¼‰æ¥æ•æ‰è¯¥ä¿¡å·è¿›è¡ŒæŒ‡å®šçš„æ“ä½œã€‚*/
+	/*µ±ÏµÍ³Ê±¼äµÎ´ğÖµ³¬¹ıÁË alarm ×Ö¶ÎÖµÊ±£¬ÄÚºË¾Í»áÏò¸Ã½ø³Ì
+	·¢ËÍÒ»¸ö SIGALRM ĞÅºÅ¡£Ä¬ÈÏÊ±¸ÃĞÅºÅ»áÖÕÖ¹³ÌĞòµÄÖ´ĞĞ¡£¿ÉÒÔÊ¹ÓÃĞÅºÅ²¶×½º¯Êı£¨signal()
+	»ò sigaction()£©À´²¶×½¸ÃĞÅºÅ½øĞĞÖ¸¶¨µÄ²Ù×÷¡£*/
 	sys_signal(SIGALRM,SIG_IGN,NULL);
 	
 	if(((int)seconds)<0){
@@ -428,11 +428,12 @@ int sys_sleep(unsigned int seconds){
 }
 
 struct linux_dirent {
-	long           d_ino; //inodeï¼Œ4ä¸ªå­—èŠ‚
-	off_t          d_off; //offset to next linux_direntï¼Œ4ä¸ªå­—èŠ‚
-	unsigned short d_reclen; //length of this direntï¼Œ2ä¸ªå­—èŠ‚
-	char           d_name[14]; //filenameï¼Œ14ä¸ªå­—èŠ‚
+	long           d_ino; //inode£¬4¸ö×Ö½Ú
+	off_t          d_off; //offset to next linux_dirent£¬4¸ö×Ö½Ú
+	unsigned short d_reclen; //length of this dirent£¬2¸ö×Ö½Ú
+	char           d_name[14]; //filename£¬14¸ö×Ö½Ú
 };
+
 
 int sys_getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count){
 	struct file *file;
@@ -440,41 +441,55 @@ int sys_getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count)
 	struct buffer_head *bd;
 	struct linux_dirent l_dirp;
 	struct dir_entry *entry;
+	int left=count,chars,nr,dirnum=0,len_dir,len_ldir,i,bk;
 	char *c;
-	int charnum=0,dirnum=0,len_dir,len_ldir,i;
 	if (fd>=NR_OPEN || count<0 || !(file=current->filp[fd]))
 		return -1;
 	if (!count)
 		return 0;
-	inode = file->f_inode;
-	bd=bread(inode->i_dev,inode->i_zone[0]);
 	len_dir=sizeof(struct dir_entry);
 	len_ldir=sizeof(struct linux_dirent);
-	while(charnum<inode->i_size && dirnum<count){
-		entry=(struct dir_entry*)(bd->b_data+charnum);
-		if(entry->inode){
-			l_dirp.d_ino=entry->inode;
-			l_dirp.d_off=len_ldir;
-			l_dirp.d_reclen=len_ldir;
-			for(i=0;i<NAME_LEN;i++)
-				l_dirp.d_name[i]=entry->name[i];
-			c=&l_dirp;
-			for(i=0;i<len_ldir;i++)
-				put_fs_byte(*(c+i),(char*)dirp+i+dirnum);
-			dirnum+=len_ldir;
+	inode = file->f_inode;
+	bk=count-len_ldir;
+	while (left) {
+		if (nr = bmap(inode,(file->f_pos)/BLOCK_SIZE)) { //µÃµ½°üº¬ÎÄ¼şµ±Ç°¶ÁĞ´Î»ÖÃµÄÊı¾İ¿éÔÚÉè±¸ÉÏ¶ÔÓ¦µÄÂß¼­¿éºÅ nr
+				if (!(bd=bread(inode->i_dev,nr))) //¶Á²Ù×÷Ê§°ÜÍË³öÑ­»·
+					break;
+			}
+		else
+			break;
+		nr = file->f_pos % BLOCK_SIZE;
+		chars =(((BLOCK_SIZE-nr)<(left))?(BLOCK_SIZE-nr):(left));
+		file->f_pos += chars;
+		for(;nr<chars;nr+=len_dir){
+			if(dirnum>bk) break;
+			entry=(struct dir_entry*)(bd->b_data+nr);
+			if(entry->inode){
+				l_dirp.d_ino=entry->inode;
+				l_dirp.d_off=len_ldir;
+				l_dirp.d_reclen=len_ldir;
+				for(i=0;i<NAME_LEN;i++)
+					l_dirp.d_name[i]=entry->name[i];
+				c=&l_dirp;
+				for(i=0;i<len_ldir;i++)
+					put_fs_byte(*(c+i),(char*)dirp+i+dirnum);
+				dirnum+=len_ldir;
+			}
+			else{
+				if(entry->name[0]=='\0') break;
+			}
 		}
-		charnum+=len_dir;
+		left=count-dirnum;
 	}
 	return dirnum;
 }
 
+
 int sys_getcwd(char * buf, size_t size){
+	
 	return 0;
 }
 
-int sys_execve2(const char *path, char * argv[], char * envp[]){
-	return 0;
-}
 
 
 int sys_pipe2(){
