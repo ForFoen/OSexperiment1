@@ -441,7 +441,7 @@ int sys_getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count)
 	struct buffer_head *bd;
 	struct linux_dirent l_dirp;
 	struct dir_entry *entry;
-	int left=count,chars,nr,dirnum=0,len_dir,len_ldir,i,bk;
+	int left=count,chars,nr,dirnum=0,len_dir,len_ldir,i,bk,num;
 	char *c;
 	if (fd>=NR_OPEN || count<0 || !(file=current->filp[fd]))
 		return -1;
@@ -451,6 +451,7 @@ int sys_getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count)
 	len_ldir=sizeof(struct linux_dirent);
 	inode = file->f_inode;
 	bk=count-len_ldir;
+	num= inode->i_size / len_dir;
 	while (left) {
 		if (nr = bmap(inode,(file->f_pos)/BLOCK_SIZE)) { //得到包含文件当前读写位置的数据块在设备上对应的逻辑块号 nr
 				if (!(bd=bread(inode->i_dev,nr))) //读操作失败退出循环
@@ -474,10 +475,9 @@ int sys_getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count)
 				for(i=0;i<len_ldir;i++)
 					put_fs_byte(*(c+i),(char*)dirp+i+dirnum);
 				dirnum+=len_ldir;
+				num--;
 			}
-			else{
-				if(entry->name[0]=='\0') break;
-			}
+			if(!num) break;
 		}
 		left=count-dirnum;
 	}
