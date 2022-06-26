@@ -14,7 +14,7 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-int file_read(struct m_inode * inode, struct file * filp, char * buf, int count)
+int file_read(struct m_inode * inode, struct file * filp, char * buf, int count)//根据filp和inode提供的信息在buf中写入count个字节
 {
 	int left,chars,nr;
 	struct buffer_head * bh;
@@ -22,8 +22,8 @@ int file_read(struct m_inode * inode, struct file * filp, char * buf, int count)
 	if ((left=count)<=0)
 		return 0;
 	while (left) {
-		if (nr = bmap(inode,(filp->f_pos)/BLOCK_SIZE)) {
-			if (!(bh=bread(inode->i_dev,nr)))
+		if (nr = bmap(inode,(filp->f_pos)/BLOCK_SIZE)) { //得到包含文件当前读写位置的数据块在设备上对应的逻辑块号 nr
+			if (!(bh=bread(inode->i_dev,nr))) //读操作失败退出循环
 				break;
 		} else
 			bh = NULL;
